@@ -3,6 +3,9 @@
 
 console.log("AsyncClipboardAPI | App is loaded.");
 
+// Get references to the DOM elements with id "cut-btn"
+const cutBtn = document.getElementById("cut-btn");
+
 // Get references to the DOM elements with id "copy-btn"
 const copyBtn = document.getElementById("copy-btn");
 
@@ -41,53 +44,14 @@ fetch("copy-html-payload.txt").then((response) => {
   });
 });
 
-// Clipboard change event listener
-if ("clipboard" in navigator && "addEventListener" in navigator.clipboard) {
-  navigator.clipboard.addEventListener("clipboardchange", (event) => {
-    // The event.types property contains an array of MIME types
-    logMessage(
-      `Clipboard content changed! Available MIME types: ${event.types}`
-    );
-  });
-} else {
-  logMessage("The clipboardchange event is not supported in this browser.");
-}
-
-function checkClipboardPermission() {
-  if (navigator?.permissions?.query) {
-    navigator.permissions
-      .query({ name: "clipboard-read" })
-      .then((permissionStatus) => {
-        logMessage(`Clipboard permission state: ${permissionStatus?.state}`);
-      })
-      .catch((err) => {
-        logMessage(
-          `Failed to query the clipboard permission state. Error: ${JSON.stringify(
-            err
-          )}`
-        );
-      });
-  } else {
-    logMessage(`Browser does not support 'navigator.permissions.query'`);
-  }
-}
-
-document.addEventListener("copy", function (e) {
-  console.log("AsyncClipboardAPI | Copy event detected!");
-  //const t0 = performance.now();
-  //e.clipboardData.setData("text/plain", copyTextPayload); //
-  // e.clipboardData.setData("text/html", copyHtmlPayload); //copyHtmlPayload
-  //const t1 = performance.now();
-  //logMessage(`Copy successfull. Time: ${t1 - t0} ms`);
-  copyToClipboard();
-  e.preventDefault();
-});
-
 document.addEventListener("paste", function (e) {
   console.log("AsyncClipboardAPI | Paste event detected!");
   pasteFromClipboard();
   e.preventDefault();
 });
+
+// Add event listeners to cutBtn
+cutBtn.addEventListener("click", cutToClipboard);
 
 // Add event listeners to copyBtn
 copyBtn.addEventListener("click", copyToClipboard);
@@ -96,119 +60,140 @@ copyBtn.addEventListener("click", copyToClipboard);
 pasteBtn.addEventListener("click", pasteFromClipboard);
 
 // Add event listeners to clearBtn
-clearBtn.addEventListener("click", clearClipboard);
+clearBtn.addEventListener("click", clearLogOutputAndClipboard);
 
-function clearClipboard() {
+function clearLogOutputAndClipboard() {
   logMessage("Clearing clipboard!");
   logOutputElm.value = "";
 
   // Clear and hide the clipboard formats table
   clearClipboardFormatsTable();
 
-  navigator.clipboard
-    .writeText("")
-    .then(() => {
-      logMessage("Clipboard cleared!");
-    })
-    .catch((err) => {
-      logMessage(`Failed to clear clipboard. Error: ${err}`);
+  // Clear the clipboard by writing an empty string
+  const copyEventHandler = (e) => {
+    e.clipboardData.setData("text/plain", "");
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Remove the event listener immediately after clearing the clipboard
+    document.removeEventListener("copy", copyEventHandler, {
+      once: true,
+      capture: false,
     });
+  };
+
+  // Add a one-time event listener for the copy event
+  document.addEventListener("copy", copyEventHandler, {
+    once: true,
+    capture: false,
+  });
+
+  // Trigger the copy event to clear the clipboard
+  document.execCommand("copy");
+}
+
+function cutToClipboard() {
+  logMessage("DataTransfer API | Cutting to clipboard!");
+
+  const cutEventHandler = (e) => {
+    // Set text/plain data
+    e.clipboardData.setData("text/plain", copyTextPayload);
+    // Set text/html data
+    e.clipboardData.setData("text/html", copyHtmlPayload);
+
+    e.preventDefault();
+    e.stopPropagation();
+    // Remove the event listener immediately after cutting to the clipboard
+    document.removeEventListener("cut", cutEventHandler, {
+      once: true,
+      capture: false,
+    });
+  };
+
+  // Add a one-time event listener for the cut event
+  document.addEventListener("cut", cutEventHandler, {
+    once: true,
+    capture: false,
+  });
+
+  // Trigger the cut event
+  const result = document.execCommand("cut");
+
+  logMessage(`Cut command executed with result: ${result}`);
 }
 
 function copyToClipboard() {
-  console.log("AsyncClipboardAPI | Copying to clipboard!");
+  logMessage("DataTransfer API | Copying to clipboard!");
 
-  if (!navigator.clipboard) {
-    logMessage("Async Clipboard API not available!");
-    return;
-  }
+  const copyEventHandler = (e) => {
+    // Set text/plain data
+    e.clipboardData.setData("text/plain", copyTextPayload);
+    // Set text/html data
+    e.clipboardData.setData("text/html", copyHtmlPayload);
 
-  const t0 = performance.now();
+    e.preventDefault();
+    e.stopPropagation();
 
-  navigator.clipboard
-    .write([
-      new ClipboardItem({
-        "text/plain": new Blob([copyTextPayload], { type: "text/plain" }), //copyTextPayload
-        "text/html": new Blob([copyHtmlPayload], { type: "text/html" }), //copyHtmlPayload
-        "web data/shadow-workbook": new Blob([copyShadowWorkbookPayload], {
-          type: "web data/shadow-workbook",
-        }), //copyShadowWorkbookPayload
-      }),
-    ])
-    .then(() => {
-      const t1 = performance.now();
-      logMessage(`Async Copy successfull. Time: ${t1 - t0} ms`);
-    })
-    .catch((err) => {
-      logMessage(`Failed to copy to clipboard. Error: ${err}`);
+    // Remove the event listener immediately after copying to the clipboard
+    document.removeEventListener("copy", copyEventHandler, {
+      once: true,
+      capture: false,
     });
+  };
+
+  // Add a one-time event listener for the copy event
+  document.addEventListener("copy", copyEventHandler, {
+    once: true,
+    capture: false,
+  });
+
+  // Trigger the copy event
+  const result = document.execCommand("copy");
+
+  logMessage(`Copy command executed with result: ${result}`);
 }
 
 function pasteFromClipboard() {
-  console.log("AsyncClipboardAPI | Pasting from clipboard!");
+  logMessage("DataTransfer API | Pasting from clipboard!");
 
-  if (!navigator.clipboard) {
-    logMessage("Async Clipboard API not available!");
-    return;
-  }
+  const pasteEventHandler = (e) => {
+    const clipboardData = e.clipboardData;
+    const mimeTypes = clipboardData.types;
+    const data = [];
 
-  const t0 = performance.now();
-
-  navigator.clipboard
-    .read({ unsanitized: ["text/html"] })
-    .then((clipboardItems) => {
-      const t1 = performance.now();
-      logMessage(`Read successfull from clipboard. Time: , ${t1 - t0}ms`);
-
-      let clipboardDataPromises = [];
-      let mimeTypes = [];
-
-      for (const clipboardItem of clipboardItems) {
-        // Get all available types from clipboard
-        for (const type of clipboardItem.types) {
-          clipboardDataPromises.push(clipboardItem.getType(type));
-          mimeTypes.push(type);
-        }
+    if (mimeTypes.length !== 0) {
+      for (let i = 0; i < mimeTypes.length; i++) {
+        const type = mimeTypes[i];
+        const value = clipboardData.getData(type);
+        data.push(value);
       }
 
-      if (clipboardDataPromises.length === 0) {
-        // No clipboard data available
-        clearClipboardFormatsTable();
-        return;
-      }
-
-      return Promise.all(clipboardDataPromises)
-        .then((clipboardDataBlobs) => {
-          // Process each blob based on its MIME type
-          return Promise.all(
-            clipboardDataBlobs.map((blob, index) => {
-              const mimeType = mimeTypes[index];
-              if (mimeType === "image/png") {
-                // For images, return the blob as a data URL
-                return new Promise((resolve) => {
-                  const reader = new FileReader();
-                  reader.onload = () => resolve(reader.result);
-                  reader.readAsDataURL(blob);
-                });
-              } else {
-                // For text-based formats, convert to text
-                return blob.text();
-              }
-            })
-          );
-        })
-        .then((clipboardData) => {
-          const t2 = performance.now();
-          logMessage(`Async paste successfull. Time: ${t2 - t0} ms`);
-
-          // Populate the clipboard formats table
-          populateClipboardFormatsTable(mimeTypes, clipboardData);
-        });
-    })
-    .catch((err) => {
-      logMessage(`Failed to paste from clipboard. Error: ${err}`);
+      populateClipboardFormatsTable(mimeTypes, data);
+    } else {
+      logMessage("No data found in clipboard.");
       clearClipboardFormatsTable();
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Remove the event listener immediately after pasting from the clipboard
+    document.removeEventListener("paste", pasteEventHandler, {
+      once: true,
+      capture: false,
     });
+  };
+
+  // Add a one-time event listener for the paste event
+  document.addEventListener("paste", pasteEventHandler, {
+    once: true,
+    capture: false,
+  });
+
+  // Trigger the paste event
+  const result = document.execCommand("paste");
+
+  logMessage(`Paste command executed with result: ${result}`);
 }
 
 function logMessage(message) {
@@ -271,5 +256,3 @@ function clearClipboardFormatsTable() {
   // Hide the table
   table.classList.remove("visible");
 }
-
-checkClipboardPermission();
