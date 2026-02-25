@@ -44,12 +44,6 @@ fetch("copy-html-payload.txt").then((response) => {
   });
 });
 
-document.addEventListener("paste", function (e) {
-  console.log("AsyncClipboardAPI | Paste event detected!");
-  pasteFromClipboard();
-  e.preventDefault();
-});
-
 // Add event listeners to cutBtn
 cutBtn.addEventListener("click", cutToClipboard);
 
